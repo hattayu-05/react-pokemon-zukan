@@ -49,6 +49,11 @@ export interface PokemonMove {
   version_group_details: VersionDetail[];
 }
 
+export interface FlavorTextEntry {
+  flavor_text: string;
+  language: NamedAPIResource;
+}
+
 export interface PokemonStat {
   stat: NamedAPIResource;
   effort: number;
