@@ -1,7 +1,12 @@
-import React from "react";
-import { usePokemonList } from "../hooks/usePokemon";
-import { extractIdFromUrl, getPokemonImageUrl, padNumber } from "../lib/utils";
-import { Link } from "react-router-dom";
+// src/pages/PokemonList.tsx
+import React, { useEffect, useRef } from 'react';
+import { useInfiniteQuery } from '@tanstack/react-query';
+import { apiQueryKeys } from '../queryKeys';
+import { fetchPokemonListWithJapaneseNames } from '../api/pokemonWithJapaneseName';
+import type { PokemonWithJapaneseName } from '../api/pokemonWithJapaneseName';
+import PokemonCard from '../components/PokemonCard';
+import Skeleton from 'react-loading-skeleton';
+import 'react-loading-skeleton/dist/skeleton.css';
 
 const PokemonList: React.FC = () => {
   const {
@@ -9,73 +14,78 @@ const PokemonList: React.FC = () => {
     fetchNextPage,
     hasNextPage,
     isFetchingNextPage,
+    status,
     isLoading,
-    error,
-  } = usePokemonList();
+  } = useInfiniteQuery({
+    queryKey: [apiQueryKeys.pokemon.list()],
+    queryFn: ({ pageParam = 0 }) => fetchPokemonListWithJapaneseNames(pageParam),
+    initialPageParam: 0,
+    getNextPageParam: (lastPage, pages) => {
+      if (lastPage.next) {
+        return pages.length * 20;
+      }
+      return undefined;
+    },
+  });
 
-  if (isLoading) {
-    return (
-      <div className="flex justify-center items-center min-h-screen">
-        <div className="text-2xl">読み込み中...</div>
-      </div>
+  const loadMoreRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0].isIntersecting && hasNextPage && !isFetchingNextPage) {
+          fetchNextPage();
+        }
+      },
+      { threshold: 1.0 }
     );
-  }
 
-  if (error) {
-    return (
-      <div className="flex justify-center items-center min-h-screen">
-        <div className="text-2xl text-red-500">エラーが発生しました</div>
-      </div>
-    );
-  }
+    if (loadMoreRef.current) {
+      observer.observe(loadMoreRef.current);
+    }
 
-  const allPokemon = data?.pages.flatMap((page) => page.results) || [];
+    return () => observer.disconnect();
+  }, [fetchNextPage, hasNextPage, isFetchingNextPage]);
+
+  if (isLoading) return <PokemonListSkeleton />;
+  if (status === 'error') return <div>エラーが発生しました</div>;
 
   return (
-    <div className="container mx-auto px-4 py-8">
-      <h1 className="text-4xl font-bold text-center mb-8 text-blue-600">
-        Reactポケモン図鑑
-      </h1>
-
-      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
-        {allPokemon.map((pokemon) => {
-          const id = extractIdFromUrl(pokemon.url);
-          return (
-            <Link
-              key={pokemon.name}
-              to={`/pokemon/${id}`}
-              className="bg-white rounded-lg shadow-md hover:shadow-lg transition-shadow duration-200 p-4 border border-gray-200"
-            >
-              <div className="text-center">
-                <div className="text-sm text-gray-500 mb-2">
-                  No.{padNumber(id)}
-                </div>
-                <img
-                  src={getPokemonImageUrl(id)}
-                  alt={pokemon.name}
-                  className="w-24 h-24 mx-auto mb-2"
-                  loading="lazy"
-                />
-                <h3 className="text-lg font-semibold capitalize text-gray-800">
-                  {pokemon.name}
-                </h3>
-              </div>
-            </Link>
-          );
-        })}
+    <div className="p-4">
+      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4">
+        {data?.pages.map((page) =>
+          page.results.map((pokemon: PokemonWithJapaneseName) => (
+            <PokemonCard key={pokemon.name} pokemon={pokemon} />
+          ))
+        )}
       </div>
+      <div ref={loadMoreRef} className="h-20 flex items-center justify-center">
+        {isFetchingNextPage ? <Loader /> : hasNextPage ? '続きを読み込む' : ''}
+      </div>
+    </div>
+  );
+};
 
-      {hasNextPage && (
-        <div className="text-center mt-8">
-          <button
-            onClick={() => fetchNextPage()}
-            disabled={isFetchingNextPage}
-            className="bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 px-4 rounded disabled:opacity-50"
-          >
-            {isFetchingNextPage ? "読み込み中..." : "もっと見る"}
-          </button>
-        </div>
-      )}
+// ローダーコンポーネント
+const Loader: React.FC = () => (
+  <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-gray-900"></div>
+);
+
+const PokemonListSkeleton: React.FC = () => {
+  return (
+    <div className="p-4">
+      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4">
+        {[...Array(18)].map((_, index) => (
+          <div key={index} className="bg-white shadow-md rounded-lg p-4">
+            <Skeleton height={120} />
+            <Skeleton width={80} height={20} className="mt-2" />
+            <Skeleton width={100} height={16} className="mt-1" />
+          </div>
+        ))}
+      </div>
+      <div className="h-10 flex items-center justify-center">
+        <Skeleton width={100} height={20} />
+      </div>
     </div>
   );
 };
