@@ -9,4 +9,8 @@ export default defineConfig(({ command }) => ({
   css: {
     postcss: './postcss.config.js',
   },
+  build: {
+    cssCodeSplit: false,
+    assetsInlineLimit: 0,
+  },
 }))
