@@ -1,117 +1,139 @@
-// src/pages/PokemonDetail.tsx
-import { useQuery } from '@tanstack/react-query';
-import React, { useEffect } from 'react';
-import { Link, useParams } from 'react-router-dom';
-import { fetchPokemonDetail } from '../api/pokemonDetail';
-import PokemonTypeLabel from '../components/PokemonTypeLabel';
-import { apiQueryKeys } from '../queryKeys';
-import Skeleton from 'react-loading-skeleton';
-import 'react-loading-skeleton/dist/skeleton.css';
+import React from 'react';
+import { useParams, Link } from 'react-router-dom';
+import { usePokemon } from '../hooks/usePokemon';
+import { getTypeColor, getStatNameJP, padNumber } from '../lib/utils';
 
 const PokemonDetail: React.FC = () => {
   const { id } = useParams<{ id: string }>();
+  const pokemonId = id ? parseInt(id, 10) : 0;
+  
+  const { data: pokemon, isLoading, error } = usePokemon(pokemonId);
 
-  const { data, isLoading, error } = useQuery({
-    queryKey: [apiQueryKeys.pokemon.detail(Number(id))],
-    queryFn: () => fetchPokemonDetail(Number(id)),
-    enabled: !!id,
-  });
+  if (isLoading) {
+    return (
+      <div className="flex justify-center items-center min-h-screen">
+        <div className="text-2xl">読み込み中...</div>
+      </div>
+    );
+  }
 
-  useEffect(() => {
-    console.log(data);
-  }, [data])
-
-  if (isLoading) return <PokemonDetailSkeleton />;
-  if (error instanceof Error) return <div>エラー: {error.message}</div>;
-  if (!data) return <div>ポケモンが見つかりません</div>;
+  if (error || !pokemon) {
+    return (
+      <div className="flex justify-center items-center min-h-screen">
+        <div className="text-center">
+          <div className="text-2xl text-red-500 mb-4">ポケモンが見つかりません</div>
+          <Link 
+            to="/" 
+            className="bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 px-4 rounded"
+          >
+            図鑑に戻る
+          </Link>
+        </div>
+      </div>
+    );
+  }
 
   return (
-    <div className="p-4 max-w-[400px] m-auto">
-      <Link to="/" className="px-4 py-2 bg-blue-500 text-white rounded-md mb-4">← 一覧に戻る</Link>
-      <div className="mt-4 bg-white shadow-md rounded p-8 flex flex-col items-center gap-4">
-        <img src={data.image} alt={data.japaneseName} className="w-40 h-40" />
-        <h1 className="mt-4 text-2xl font-bold">{data.japaneseName} (#{data.id})</h1>
-        <p className="mt-2 text-justify">{data.description}</p>
-        <div className="grid grid-cols-2 gap-2">
-          {data?.types?.map((type) => (
-            <PokemonTypeLabel key={type} type={type} />
-          ))}
-        </div>
-          <span className="w-fit whitespace-nowrap text-right">特性</span>
-        <div className="flex gap-2">
-          <div className="grid grid-cols-2 gap-2 w-full">
-            {data?.abilities?.map((ability) => (
-              <span key={ability}>{ability}</span>
-            ))}
-          </div>
-        </div>
-        <div className="mt-4 grid grid-cols-1 gap-x-2 w-full">
-          {data?.baseStats?.map((stat) => (
-            <div key={stat.name} className="flex items-center">
-              <span className="w-24 text-right mr-2">{stat.name}</span>
-              <div className="flex-1 bg-gray-200 rounded-full h-4">
-                <div
-                  className="bg-blue-600 rounded-full h-4"
-                  style={{ width: `${(stat.value / 255) * 100}%` }}
-                ></div>
-              </div>
-              <span className="ml-2 w-8">{stat.value}</span>
-            </div>
-          ))}
-          {/* 合計種族値 */}
-          <div className="flex items-center">
-            <span className="w-24 text-right mr-2">合計</span>
-            <div className="flex-1 bg-gray-200 rounded-full h-4">
-              <div
-                className="bg-blue-600 rounded-full h-4"
-                style={{ width: `${(data?.baseStats?.reduce((sum, stat) => sum + stat.value, 0) / 780) * 100}%` }}
-              ></div>
-            </div>
-            <span className="ml-2 w-8">{data?.baseStats?.reduce((sum, stat) => sum + stat.value, 0)}</span>
-          </div>
-        </div>
+    <div className="container mx-auto px-4 py-8 max-w-4xl">
+      {/* ヘッダー */}
+      <div className="mb-6">
+        <Link 
+          to="/" 
+          className="text-blue-500 hover:text-blue-600 font-medium"
+        >
+          ← 図鑑に戻る
+        </Link>
       </div>
-      <div className="mt-4 flex justify-between">
-        {/* 0は前へがないので非表示 */}
-        {Number(id) !== 1 ? <Link to={`/pokemon/${Number(id) - 1}`} className="px-4 py-2 bg-blue-500 text-white rounded-md">前へ</Link> : <span />}
-        <Link to={`/pokemon/${Number(id) + 1}`} className="px-4 py-2 bg-blue-500 text-white rounded-md">次へ</Link>
-      </div>
-    </div>
-  );
-};
 
-const PokemonDetailSkeleton: React.FC = () => {
-  return (
-    <div className="p-4 max-w-[400px] m-auto">
-      <div className="px-4 py-2 bg-blue-500 text-white rounded-md mb-4 w-24">
-        <Skeleton />
-      </div>
-      <div className="mt-4 bg-white shadow-md rounded p-8 flex flex-col items-center gap-4">
-        <Skeleton circle={true} width={160} height={160} />
-        <Skeleton width={200} height={24} />
-        <Skeleton width={300} height={60} />
-        <div className="grid grid-cols-2 gap-2 w-full">
-          <Skeleton width={100} height={24} />
-          <Skeleton width={100} height={24} />
-        </div>
-        <div className="grid grid-cols-2 gap-2 w-full">
-          <Skeleton width={100} height={24} />
-          <Skeleton width={100} height={24} />
-        </div>
-        <div className="mt-4 grid grid-cols-1 gap-x-2 w-full">
-          {[...Array(6)].map((_, index) => (
-            <div key={index} className="flex items-center">
-              <Skeleton width={60} height={20} />
-              <div className="flex-1 ml-2">
-                <Skeleton height={20} />
+      {/* メイン情報 */}
+      <div className="bg-white rounded-lg shadow-lg p-6 mb-6">
+        <div className="grid md:grid-cols-2 gap-6">
+          {/* 左側：画像と基本情報 */}
+          <div className="text-center">
+            <div className="text-sm text-gray-500 mb-2">
+              No.{padNumber(pokemon.id)}
+            </div>
+            <img
+              src={pokemon.imageUrl}
+              alt={pokemon.japaneseName}
+              className="w-48 h-48 mx-auto mb-4"
+            />
+            <h1 className="text-3xl font-bold text-gray-800 mb-2">
+              {pokemon.japaneseName}
+            </h1>
+            <p className="text-lg text-gray-600 capitalize mb-4">
+              {pokemon.name}
+            </p>
+            <p className="text-md text-gray-600 mb-4">
+              {pokemon.category}
+            </p>
+            
+            {/* タイプ */}
+            <div className="flex justify-center gap-2 mb-4">
+              {pokemon.types.map((type, index) => (
+                <span
+                  key={index}
+                  className="px-3 py-1 rounded-full text-white font-medium text-sm"
+                  style={{ backgroundColor: getTypeColor(type) }}
+                >
+                  {type}
+                </span>
+              ))}
+            </div>
+          </div>
+
+          {/* 右側：詳細情報 */}
+          <div>
+            <h2 className="text-xl font-bold mb-4 text-gray-800">基本情報</h2>
+            
+            {/* 身長・体重 */}
+            <div className="grid grid-cols-2 gap-4 mb-6">
+              <div className="bg-gray-50 p-3 rounded">
+                <div className="text-sm text-gray-600">身長</div>
+                <div className="text-lg font-semibold">
+                  {(pokemon.height / 10).toFixed(1)} m
+                </div>
+              </div>
+              <div className="bg-gray-50 p-3 rounded">
+                <div className="text-sm text-gray-600">体重</div>
+                <div className="text-lg font-semibold">
+                  {(pokemon.weight / 10).toFixed(1)} kg
+                </div>
               </div>
             </div>
-          ))}
+
+            {/* ステータス */}
+            <h3 className="text-lg font-bold mb-3 text-gray-800">ステータス</h3>
+            <div className="space-y-2">
+              {Object.entries(pokemon.stats).map(([statName, value]) => (
+                <div key={statName} className="flex items-center">
+                  <div className="w-20 text-sm text-gray-600">
+                    {getStatNameJP(statName)}
+                  </div>
+                  <div className="flex-1 mx-3">
+                    <div className="bg-gray-200 rounded-full h-2">
+                      <div
+                        className="bg-blue-500 h-2 rounded-full"
+                        style={{ width: `${Math.min((value / 255) * 100, 100)}%` }}
+                      />
+                    </div>
+                  </div>
+                  <div className="w-8 text-sm font-medium text-right">
+                    {value}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
         </div>
       </div>
-      <div className="mt-4 flex justify-between">
-        <Skeleton width={80} height={36} />
-        <Skeleton width={80} height={36} />
+
+      {/* 説明文 */}
+      <div className="bg-white rounded-lg shadow-lg p-6">
+        <h2 className="text-xl font-bold mb-4 text-gray-800">説明</h2>
+        <p className="text-gray-700 leading-relaxed">
+          {pokemon.description}
+        </p>
       </div>
     </div>
   );
